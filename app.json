@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "테스트 앱",
+    "slug": "app1753223742943",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.autoappfactory.app1753223742943",
+      "config": {
+        "googleMobileAdsAppId": "ca-app-pub-3768722597503088~9373785882"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.autoappfactory.app1753223742943",
+      "config": {
+        "googleMobileAdsAppId": "ca-app-pub-3768722597503088~9373785882"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "app1753223742941",
+  "version": "1.0.0",
+  "description": "Google Play Console 업로드 테스트용 앱입니다.",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "build": "expo build",
+    "build:android": "expo build:android",
+    "build:ios": "expo build:ios"
+  },
+  "dependencies": {
+    "expo": "~49.0.0",
+    "expo-status-bar": "~1.6.0",
+    "react": "18.2.0",
+    "react-native": "0.72.6",
+    "@react-navigation/native": "^6.1.9",
+    "@react-navigation/stack": "^6.3.20",
+    "@react-navigation/bottom-tabs": "^6.5.11",
+    "react-native-screens": "~3.22.0",
+    "react-native-safe-area-context": "4.6.3",
+    "react-native-gesture-handler": "~2.12.0",
+    "expo-font": "~11.4.0",
+    "expo-splash-screen": "~0.20.5",
+    "@expo/vector-icons": "^13.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  },
+  "keywords": [
+    "테스트",
+    "유틸리티",
+    "간단함"
+  ],
+  "author": "Auto App Factory",
+  "license": "MIT"
+}

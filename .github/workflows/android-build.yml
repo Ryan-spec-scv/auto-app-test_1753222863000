@@ -1,0 +1,60 @@
+name: Android Build and Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install dependencies
+      run: |
+        npm install --legacy-peer-deps
+        npx expo install --fix
+    
+    - name: Setup Java JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+    
+    - name: Setup Keystore
+      run: |
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/auto-app-factory.keystore
+        echo "MYAPP_UPLOAD_STORE_FILE=auto-app-factory.keystore" >> android/gradle.properties
+        echo "MYAPP_UPLOAD_KEY_ALIAS=auto-app-factory" >> android/gradle.properties
+        echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
+        echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
+    
+    - name: Prebuild Android
+      run: |
+        npx expo prebuild --platform android --no-install
+        
+    - name: Make Gradlew executable
+      run: chmod +x ./android/gradlew
+      
+    - name: Build Signed AAB
+      working-directory: ./android
+      run: |
+        ./gradlew bundleRelease
+    
+    - name: Upload AAB to Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-bundle
+        path: android/app/build/outputs/bundle/release/app-release.aab
+        retention-days: 7
