@@ -32,6 +32,10 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v2
     
+    - name: Prebuild Android
+      run: |
+        npx expo prebuild --platform android --no-install
+
     - name: Setup Keystore
       run: |
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/auto-app-factory.keystore
@@ -39,10 +43,6 @@ jobs:
         echo "MYAPP_UPLOAD_KEY_ALIAS=auto-app-factory" >> android/gradle.properties
         echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
         echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
-    
-    - name: Prebuild Android
-      run: |
-        npx expo prebuild --platform android --no-install
         
     - name: Make Gradlew executable
       run: chmod +x ./android/gradlew
