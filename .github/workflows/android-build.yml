@@ -35,14 +35,41 @@ jobs:
     - name: Prebuild Android
       run: |
         npx expo prebuild --platform android --no-install
-
-    - name: Setup Keystore
+    
+    - name: Setup Keystore and Gradle Properties
       run: |
+        # 키스토어 파일 생성
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/auto-app-factory.keystore
+        
+        # gradle.properties에 서명 정보 추가
         echo "MYAPP_UPLOAD_STORE_FILE=auto-app-factory.keystore" >> android/gradle.properties
         echo "MYAPP_UPLOAD_KEY_ALIAS=auto-app-factory" >> android/gradle.properties
         echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
         echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
+        
+        # build.gradle 파일 수정하여 릴리스 서명 설정 추가
+        cd android/app
+        
+        # signingConfigs 섹션 찾아서 release 설정 추가
+        sed -i '/signingConfigs {/a\
+        release {\
+            if (project.hasProperty("MYAPP_UPLOAD_STORE_FILE")) {\
+                storeFile file(MYAPP_UPLOAD_STORE_FILE)\
+                storePassword MYAPP_UPLOAD_STORE_PASSWORD\
+                keyAlias MYAPP_UPLOAD_KEY_ALIAS\
+                keyPassword MYAPP_UPLOAD_KEY_PASSWORD\
+            }\
+        }' build.gradle
+        
+        # buildTypes의 release에 signingConfig 추가
+        sed -i '/buildTypes {/,/release {/s/release {/release {\
+            signingConfig signingConfigs.release/' build.gradle
+        
+        # 수정된 build.gradle 확인
+        echo "=== Modified build.gradle (signing configs) ==="
+        grep -A 10 "signingConfigs" build.gradle || true
+        echo "=== Modified build.gradle (build types) ==="
+        grep -A 5 "buildTypes" build.gradle || true
         
     - name: Make Gradlew executable
       run: chmod +x ./android/gradlew
@@ -50,11 +77,42 @@ jobs:
     - name: Build Signed AAB
       working-directory: ./android
       run: |
-        ./gradlew bundleRelease
+        ./gradlew bundleRelease --info
     
+    - name: Verify AAB signing
+      run: |
+        echo "=== Verifying AAB signature ==="
+        cd android/app/build/outputs/bundle/release
+        unzip -l app-release.aab | grep -i "META-INF" || echo "No META-INF found (might be unsigned)"
+        
     - name: Upload AAB to Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: app-bundle
         path: android/app/build/outputs/bundle/release/app-release.aab
         retention-days: 7
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Release ${{ github.run_number }}
+        body: |
+          자동 생성된 릴리스입니다.
+          - 릴리스 모드로 서명된 AAB 파일
+          - Google Play Console 업로드 가능
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: android/app/build/outputs/bundle/release/app-release.aab
+        asset_name: app-release.aab
+        asset_content_type: application/octet-stream
