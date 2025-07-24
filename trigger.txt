@@ -1,1 +1,1 @@
-# Trigger build - fixed YAML Python #오후
+# 간단한 방법으로 트리거 #오후
