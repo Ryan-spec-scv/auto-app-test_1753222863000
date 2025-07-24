@@ -40,54 +40,103 @@ jobs:
       run: |
         npx expo prebuild --platform android --no-install
     
-    - name: Setup Keystore and Gradle Properties
+    - name: Setup Keystore
       run: |
         # 키스토어 파일 생성
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/auto-app-factory.keystore
         
-        # gradle.properties에 서명 정보 추가
-        echo "MYAPP_UPLOAD_STORE_FILE=auto-app-factory.keystore" >> android/gradle.properties
-        echo "MYAPP_UPLOAD_KEY_ALIAS=auto-app-factory" >> android/gradle.properties
-        echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
-        echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
+        # 키스토어 파일 확인
+        ls -la android/app/auto-app-factory.keystore
         
-        # build.gradle 파일 수정하여 릴리스 서명 설정 추가
+    - name: Configure Release Signing in build.gradle
+      run: |
+        # build.gradle 파일 백업
+        cp android/app/build.gradle android/app/build.gradle.backup
+        
+        # Python 스크립트로 build.gradle 수정
+        cat > modify_gradle.py << 'PYTHON_EOF'
+import re
+
+with open('android/app/build.gradle', 'r') as f:
+    content = f.read()
+
+# signingConfigs 추가
+if 'signingConfigs {' in content:
+    # 기존 signingConfigs에 release 추가
+    signing_config = '''
+        release {
+            storeFile file("auto-app-factory.keystore")
+            storePassword "autoappfactory123"
+            keyAlias "auto-app-factory"
+            keyPassword "autoappfactory123"
+        }'''
+    
+    content = content.replace(
+        'signingConfigs {',
+        'signingConfigs {' + signing_config
+    )
+else:
+    # signingConfigs 섹션이 없으면 android 블록 안에 추가
+    android_pattern = r'(android\s*{)'
+    replacement = r'\1\n    signingConfigs {\n        release {\n            storeFile file("auto-app-factory.keystore")\n            storePassword "autoappfactory123"\n            keyAlias "auto-app-factory"\n            keyPassword "autoappfactory123"\n        }\n    }'
+    content = re.sub(android_pattern, replacement, content)
+
+# buildTypes의 release에 signingConfig 추가
+build_types_pattern = r'(buildTypes\s*{[^}]*release\s*{)'
+if re.search(build_types_pattern, content):
+    content = re.sub(
+        r'(buildTypes\s*{[^}]*release\s*{)',
+        r'\1\n            signingConfig signingConfigs.release',
+        content
+    )
+
+# 파일 저장
+with open('android/app/build.gradle', 'w') as f:
+    f.write(content)
+
+print("✅ build.gradle modified successfully")
+PYTHON_EOF
+        
         cd android/app
+        python ../../modify_gradle.py
         
-        # signingConfigs 섹션 찾아서 release 설정 추가
-        sed -i '/signingConfigs {/a\
-        release {\
-            if (project.hasProperty("MYAPP_UPLOAD_STORE_FILE")) {\
-                storeFile file(MYAPP_UPLOAD_STORE_FILE)\
-                storePassword MYAPP_UPLOAD_STORE_PASSWORD\
-                keyAlias MYAPP_UPLOAD_KEY_ALIAS\
-                keyPassword MYAPP_UPLOAD_KEY_PASSWORD\
-            }\
-        }' build.gradle
-        
-        # buildTypes의 release에 signingConfig 추가
-        sed -i '/buildTypes {/,/release {/s/release {/release {\
-            signingConfig signingConfigs.release/' build.gradle
-        
-        # 수정된 build.gradle 확인
-        echo "=== Modified build.gradle (signing configs) ==="
-        grep -A 10 "signingConfigs" build.gradle || true
-        echo "=== Modified build.gradle (build types) ==="
-        grep -A 5 "buildTypes" build.gradle || true
+        # 수정된 내용 확인
+        echo "=== Modified build.gradle ==="
+        cat build.gradle | grep -A 20 "signingConfigs" || true
+        echo "==="
+        cat build.gradle | grep -A 10 "buildTypes" || true
         
     - name: Make Gradlew executable
       run: chmod +x ./android/gradlew
       
-    - name: Build Signed AAB
+    - name: Clean and Build Signed AAB
       working-directory: ./android
       run: |
-        ./gradlew bundleRelease --info
+        # 클린 빌드
+        ./gradlew clean
+        
+        # 릴리스 빌드
+        ./gradlew bundleRelease --stacktrace
+        
+        # 빌드 결과 확인
+        echo "=== Build outputs ==="
+        ls -la app/build/outputs/bundle/release/
     
     - name: Verify AAB signing
       run: |
         echo "=== Verifying AAB signature ==="
         cd android/app/build/outputs/bundle/release
-        unzip -l app-release.aab | grep -i "META-INF" || echo "No META-INF found (might be unsigned)"
+        
+        # jarsigner로 서명 확인
+        jarsigner -verify -verbose -certs app-release.aab || echo "Jarsigner verification failed"
+        
+        # AAB 내용 확인
+        echo "=== AAB contents ==="
+        unzip -l app-release.aab | head -20
+        
+        # META-INF 확인
+        echo "=== Checking for signatures ==="
+        unzip -l app-release.aab | grep "META-INF" || echo "No META-INF found"
         
     - name: Upload AAB to Artifacts
       uses: actions/upload-artifact@v4
