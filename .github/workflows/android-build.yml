@@ -112,10 +112,10 @@ jobs:
           --repo "${{ github.repository }}" \
           --title "Release ${{ github.run_number }} - ${{ steps.date.outputs.date }}" \
           --notes "자동 생성된 릴리스입니다.
-- 릴리스 모드로 서명된 AAB 파일
-- Google Play Console 업로드 가능
-- 빌드 번호: ${{ github.run_number }}
-- 생성 시간: ${{ steps.date.outputs.date }}" \
+        - 릴리스 모드로 서명된 AAB 파일
+        - Google Play Console 업로드 가능
+        - 빌드 번호: ${{ github.run_number }}
+        - 생성 시간: ${{ steps.date.outputs.date }}" \
           "$AAB_PATH#app-release.aab"
         
         echo "✅ Release created successfully!"
