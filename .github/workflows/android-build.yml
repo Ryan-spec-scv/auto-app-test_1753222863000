@@ -8,6 +8,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      actions: read
     
     steps:
     - name: Checkout code
@@ -92,27 +96,26 @@ jobs:
         path: android/app/build/outputs/bundle/release/app-release.aab
         retention-days: 7
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: v${{ github.run_number }}
-        release_name: Release ${{ github.run_number }}
-        body: |
-          자동 생성된 릴리스입니다.
-          - 릴리스 모드로 서명된 AAB 파일
-          - Google Play Console 업로드 가능
-        draft: false
-        prerelease: false
+    - name: Get current date
+      id: date
+      run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
+    - name: Create Release using GitHub CLI
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: android/app/build/outputs/bundle/release/app-release.aab
-        asset_name: app-release.aab
-        asset_content_type: application/octet-stream
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        # AAB 파일 경로
+        AAB_PATH="android/app/build/outputs/bundle/release/app-release.aab"
+        
+        # 릴리스 생성
+        gh release create "v${{ github.run_number }}" \
+          --repo "${{ github.repository }}" \
+          --title "Release ${{ github.run_number }} - ${{ steps.date.outputs.date }}" \
+          --notes "자동 생성된 릴리스입니다.
+- 릴리스 모드로 서명된 AAB 파일
+- Google Play Console 업로드 가능
+- 빌드 번호: ${{ github.run_number }}
+- 생성 시간: ${{ steps.date.outputs.date }}" \
+          "$AAB_PATH#app-release.aab"
+        
+        echo "✅ Release created successfully!"
