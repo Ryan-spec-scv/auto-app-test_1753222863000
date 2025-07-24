@@ -42,42 +42,34 @@ jobs:
     
     - name: Setup Keystore and Signing
       run: |
-        # 키스토어 파일 생성
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/auto-app-factory.keystore
         
-        # gradle.properties에 서명 정보 추가
         echo "MYAPP_UPLOAD_STORE_FILE=auto-app-factory.keystore" >> android/gradle.properties
         echo "MYAPP_UPLOAD_KEY_ALIAS=auto-app-factory" >> android/gradle.properties
         echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
         echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
         
-        # build.gradle에 서명 설정 직접 추가
         cd android/app
         
-        # 서명 설정을 build.gradle 끝에 추가
-        cat >> build.gradle << 'GRADLE_EOF'
-
-android {
-    signingConfigs {
-        release {
-            storeFile file('auto-app-factory.keystore')
-            storePassword 'autoappfactory123'
-            keyAlias 'auto-app-factory'
-            keyPassword 'autoappfactory123'
-        }
-    }
-    buildTypes {
-        release {
-            signingConfig signingConfigs.release
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-        }
-    }
-}
-GRADLE_EOF
+        echo "" >> build.gradle
+        echo "android.signingConfigs {" >> build.gradle
+        echo "    release {" >> build.gradle
+        echo "        storeFile file('auto-app-factory.keystore')" >> build.gradle
+        echo "        storePassword 'autoappfactory123'" >> build.gradle
+        echo "        keyAlias 'auto-app-factory'" >> build.gradle
+        echo "        keyPassword 'autoappfactory123'" >> build.gradle
+        echo "    }" >> build.gradle
+        echo "}" >> build.gradle
+        echo "" >> build.gradle
+        echo "android.buildTypes {" >> build.gradle
+        echo "    release {" >> build.gradle
+        echo "        signingConfig android.signingConfigs.release" >> build.gradle
+        echo "        minifyEnabled false" >> build.gradle
+        echo "    }" >> build.gradle
+        echo "}" >> build.gradle
         
         echo "=== build.gradle 확인 ==="
-        tail -20 build.gradle
+        tail -15 build.gradle
         
     - name: Make Gradlew executable
       run: chmod +x ./android/gradlew
@@ -95,11 +87,7 @@ GRADLE_EOF
       run: |
         echo "=== AAB 서명 검증 ==="
         cd android/app/build/outputs/bundle/release
-        
-        # AAB 내용 확인
         unzip -l app-release.aab | head -20
-        
-        # META-INF 확인 (서명 파일들)
         echo "=== 서명 파일 확인 ==="
         unzip -l app-release.aab | grep "META-INF" || echo "META-INF 파일 없음"
         
@@ -126,4 +114,4 @@ GRADLE_EOF
           --notes "릴리스 서명된 AAB 파일 - Google Play Console 업로드 가능" \
           "$AAB_PATH#app-release.aab"
         
-        echo "✅ 릴리스 생성 완료!"
+        echo "릴리스 생성 완료!"
